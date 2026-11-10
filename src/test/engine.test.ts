@@ -11,7 +11,7 @@ import {
   recipesFor,
   type PantryProfile,
   type Recipe,
-} from "@/lib/engine";
+} from "../../server/engine/index";
 
 vi.spyOn(console, "log").mockImplementation(() => {});
 

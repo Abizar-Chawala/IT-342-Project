@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LanternLoader } from "@/components/LanternLoader";
 import { RecipeCard } from "@/components/RecipeCard";
 import { GatherPanel } from "@/components/GatherPanel";
-import { recipesFor, type PantryProfile } from "@/lib/engine";
-import { supabase } from "@/integrations/supabase/client";
-import { isDemoSession } from "@/lib/demo-auth";
+import type { PantryProfile, SearchResults } from "@/lib/types";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/_authenticated/results")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -51,6 +50,7 @@ function ResultsPage() {
   const { p: pantry, s: servings } = Route.useSearch();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<PantryProfile | null>(null);
+  const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"nothing" | "few" | null>(null);
@@ -61,46 +61,13 @@ function ResultsPage() {
       setLoading(true);
       setError(null);
       try {
-        if (isDemoSession()) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          if (cancelled) return;
-          setProfile({
-            restrictions: [],
-            also_avoid: null,
-            likes: null,
-            dislikes: null,
-            cuisines: null,
-            budget: null,
-          });
-          return;
-        }
-
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-        if (userError || !user) throw new Error("not signed in");
-        const { data, error: profileError } = await supabase
-          .from("profiles")
-          .select("restrictions, also_avoid, likes, dislikes, cuisines, budget")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (profileError) throw profileError;
-        // Lanterns light one by one — give them their moment even though
-        // the matching itself is instant.
-        const [profileData] = await Promise.all([
-          Promise.resolve(data),
-          new Promise((r) => setTimeout(r, 1000)),
-        ]);
+        const response = await api<{ results: SearchResults; profile: PantryProfile }>(
+          "/api/recipes",
+          { method: "POST", body: JSON.stringify({ pantry, servings }) },
+        );
         if (cancelled) return;
-        setProfile({
-          restrictions: profileData?.restrictions ?? [],
-          also_avoid: profileData?.also_avoid ?? null,
-          likes: profileData?.likes ?? null,
-          dislikes: profileData?.dislikes ?? null,
-          cuisines: profileData?.cuisines ?? null,
-          budget: profileData?.budget ?? null,
-        });
+        setProfile(response.profile);
+        setResults(response.results);
       } catch (e) {
         console.error(e);
         if (!cancelled) {
@@ -114,12 +81,7 @@ function ResultsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const results = useMemo(() => {
-    if (!profile || pantry.length === 0) return null;
-    return recipesFor(profile, pantry, servings);
-  }, [profile, pantry, servings]);
+  }, [pantry, servings]);
 
   if (pantry.length === 0) {
     return (

@@ -1,8 +1,5 @@
 @import "tailwindcss" source(none);
 @source "../src";
-@import "tw-animate-css";
-
-@custom-variant dark (&:is(.dark *));
 
 /*
  * Design system — ENCHANTED GROVE
@@ -61,28 +58,6 @@
   --glow: oklch(0.917 0.11 98.6);
   --ink: oklch(0.291 0.036 140.1);
 
-  --background: var(--forest-dark);
-  --foreground: var(--parchment);
-  --card: var(--parchment);
-  --card-foreground: var(--ink);
-  --popover: var(--parchment);
-  --popover-foreground: var(--ink);
-  --primary: var(--gold);
-  --primary-foreground: var(--forest-dark);
-  --secondary: var(--moss);
-  --secondary-foreground: var(--parchment);
-  --muted: oklch(0.38 0.05 156);
-  --muted-foreground: oklch(0.82 0.05 110);
-  --accent: oklch(0.42 0.06 150);
-  --accent-foreground: var(--parchment);
-  --destructive: oklch(0.62 0.2 25);
-  --destructive-foreground: var(--parchment);
-  --border: oklch(0.936 0.032 87.3 / 18%);
-  --input: oklch(0.936 0.032 87.3 / 28%);
-  --ring: var(--gold);
-}
-
-.dark {
   --background: var(--forest-dark);
   --foreground: var(--parchment);
   --card: var(--parchment);

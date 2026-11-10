@@ -37,9 +37,8 @@ function Index() {
         Cook what you have.
       </p>
       <p className="fade-up mt-6 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-        Tell the grove what's already in your kitchen, and it will conjure the
-        recipes you can cook tonight — plus a short shopping list for the ones
-        that are just a few things away.
+        Tell the grove what's already in your kitchen, and it will conjure the recipes you can cook
+        tonight — plus a short shopping list for the ones that are just a few things away.
       </p>
       <div className="fade-up mt-10 flex flex-col gap-3 sm:flex-row">
         <Link

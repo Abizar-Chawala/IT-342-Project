@@ -14,7 +14,6 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as AuthenticatedResultsRouteImport } from './routes/_authenticated/results'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
-import { Route as DevChecksRouteImport } from './routes/dev.checks'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,25 +39,18 @@ const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
   path: '/search',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const DevChecksRoute = DevChecksRouteImport.update({
-  id: '/dev/checks',
-  path: '/dev/checks',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/results': typeof AuthenticatedResultsRoute
   '/search': typeof AuthenticatedSearchRoute
-  '/dev/checks': typeof DevChecksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/results': typeof AuthenticatedResultsRoute
   '/search': typeof AuthenticatedSearchRoute
-  '/dev/checks': typeof DevChecksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -67,13 +59,12 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/_authenticated/results': typeof AuthenticatedResultsRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
-  '/dev/checks': typeof DevChecksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/results' | '/search' | '/dev/checks'
+  fullPaths: '/' | '/account' | '/results' | '/search'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/results' | '/search' | '/dev/checks'
+  to: '/' | '/account' | '/results' | '/search'
   id:
     | '__root__'
     | '/'
@@ -81,14 +72,12 @@ export interface FileRouteTypes {
     | '/account'
     | '/_authenticated/results'
     | '/_authenticated/search'
-    | '/dev/checks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AccountRoute: typeof AccountRoute
-  DevChecksRoute: typeof DevChecksRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -128,13 +117,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSearchRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/dev/checks': {
-      id: '/dev/checks'
-      path: '/dev/checks'
-      fullPath: '/dev/checks'
-      preLoaderRoute: typeof DevChecksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -155,7 +137,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AccountRoute: AccountRoute,
-  DevChecksRoute: DevChecksRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -2,9 +2,22 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { LanternLoader } from "@/components/LanternLoader";
 import { IngredientSearch } from "@/components/IngredientSearch";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { endDemoSession, isDemoSession, startDemoSession } from "@/lib/demo-auth";
-import type { User } from "@supabase/supabase-js";
+
+interface AccountUser {
+  id: string;
+  email: string;
+}
+
+interface SavedProfile {
+  restrictions: string[];
+  alsoAvoid: string | null;
+  likes: string | null;
+  dislikes: string | null;
+  cuisines: string | null;
+  budget: string | number | null;
+}
 
 export const Route = createFileRoute("/account")({
   head: () => ({
@@ -61,7 +74,7 @@ const EMPTY_FORM: ProfileForm = {
 function AccountPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AccountUser | null>(null);
   const [demoMode, setDemoMode] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
@@ -80,9 +93,8 @@ function AccountPage() {
     let cancelled = false;
     async function checkSession() {
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        if (!cancelled) setUser(data.session?.user ?? null);
+        const { user } = await api<{ user: AccountUser | null }>("/api/auth/session");
+        if (!cancelled) setUser(user);
       } catch (error) {
         console.error(error);
         if (!cancelled) {
@@ -93,17 +105,8 @@ function AccountPage() {
       }
     }
     void checkSession();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!cancelled) {
-        setUser(session?.user ?? null);
-        if (session) setSessionError(null);
-      }
-    });
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
     };
   }, []);
 
@@ -141,7 +144,13 @@ function AccountPage() {
       onSignedOut={() => setDemoMode(false)}
     />
   ) : user ? (
-    <ProfilePanel user={user} onSignedOut={() => navigate({ to: "/account" })} />
+    <ProfilePanel
+      user={user}
+      onSignedOut={() => {
+        setUser(null);
+        void navigate({ to: "/account" });
+      }}
+    />
   ) : (
     <AuthPanel onContinueInDemo={continueInDemoMode} />
   );
@@ -164,24 +173,21 @@ function AuthPanel({ onContinueInDemo }: { onContinueInDemo: () => void }) {
     setNotice(null);
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
+        await api("/api/auth/register", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
         });
-        if (error) throw error;
-        if (data.session === null) {
-          setNotice("Check your email for a confirmation link, then sign in here.");
-        } else {
-          setNotice(null);
-        }
+        window.location.reload();
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        await api("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        window.location.reload();
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Something went wrong. Try again.";
-      setError(message.includes("Invalid login") ? "Wrong email or password." : message);
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -357,7 +363,7 @@ function DemoPanel({
   );
 }
 
-function ProfilePanel({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
+function ProfilePanel({ user, onSignedOut }: { user: AccountUser; onSignedOut: () => void }) {
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
   const [status, setStatus] = useState<
     "loading" | "ready" | "saving" | "saved" | "load-error" | "save-error"
@@ -369,20 +375,15 @@ function ProfilePanel({ user, onSignedOut }: { user: User; onSignedOut: () => vo
     let cancelled = false;
     async function loadProfile() {
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("restrictions, also_avoid, likes, dislikes, cuisines, budget")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (error) throw error;
+        const { profile } = await api<{ profile: SavedProfile | null }>("/api/profile");
         if (cancelled) return;
         setForm({
-          restrictions: data?.restrictions ?? [],
-          also_avoid: data?.also_avoid ?? "",
-          likes: data?.likes ?? "",
-          dislikes: data?.dislikes ?? "",
-          cuisines: data?.cuisines ?? "",
-          budget: data?.budget != null ? String(data.budget) : "",
+          restrictions: profile?.restrictions ?? [],
+          also_avoid: profile?.alsoAvoid ?? "",
+          likes: profile?.likes ?? "",
+          dislikes: profile?.dislikes ?? "",
+          cuisines: profile?.cuisines ?? "",
+          budget: profile?.budget != null ? String(profile.budget) : "",
         });
         setStatus("ready");
       } catch (error) {
@@ -401,16 +402,17 @@ function ProfilePanel({ user, onSignedOut }: { user: User; onSignedOut: () => vo
     setStatus("saving");
     try {
       const budgetNum = parseFloat(form.budget);
-      const { error } = await supabase.from("profiles").upsert({
-        user_id: user.id,
-        restrictions: form.restrictions,
-        also_avoid: form.also_avoid || null,
-        likes: form.likes || null,
-        dislikes: form.dislikes || null,
-        cuisines: form.cuisines || null,
-        budget: Number.isFinite(budgetNum) ? budgetNum : null,
+      await api("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          restrictions: form.restrictions,
+          also_avoid: form.also_avoid || null,
+          likes: form.likes || null,
+          dislikes: form.dislikes || null,
+          cuisines: form.cuisines || null,
+          budget: Number.isFinite(budgetNum) ? budgetNum : null,
+        }),
       });
-      if (error) throw error;
       setStatus("saved");
     } catch (error) {
       console.error(error);
@@ -421,8 +423,7 @@ function ProfilePanel({ user, onSignedOut }: { user: User; onSignedOut: () => vo
   async function signOut() {
     setSignOutError(null);
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await api("/api/auth/logout", { method: "POST" });
       onSignedOut();
     } catch (error) {
       console.error(error);

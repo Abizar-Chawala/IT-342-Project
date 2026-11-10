@@ -1,4 +1,4 @@
-import type { TierResult } from "@/lib/engine";
+import type { TierResult } from "@/lib/types";
 
 interface RecipeCardProps {
   tier: TierResult;

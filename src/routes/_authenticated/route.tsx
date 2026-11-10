@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { isDemoSession } from "@/lib/demo-auth";
 
 /**
@@ -12,8 +12,13 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     if (isDemoSession()) return;
 
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    try {
+      const { user } = await api<{ user: { id: string } | null }>("/api/auth/session");
+      if (user) return;
+    } catch (error) {
+      console.error(error);
+    }
+    {
       throw redirect({ to: "/account" });
     }
   },

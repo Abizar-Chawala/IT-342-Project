@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { canonicalsByAlias } from "@/lib/engine";
-import { suggestIngredients, type Suggestion } from "@/lib/suggest";
+import { api } from "@/lib/api";
+
+interface Suggestion {
+  name: string;
+  alias?: string;
+}
 
 interface IngredientSearchProps {
   selected: string[];
@@ -28,10 +32,38 @@ export function IngredientSearch({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [ambiguous, setAmbiguous] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const selectedSet = new Set(selected);
-  const suggestions = suggestIngredients(query, selectedSet);
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSuggestions([]);
+      setAmbiguous(false);
+      return;
+    }
+
+    let active = true;
+    const params = new URLSearchParams({ q: trimmed, exclude: selected.join(",") });
+    void api<{ suggestions: Suggestion[]; ambiguous: boolean }>(`/api/pantry?${params}`)
+      .then(({ suggestions: next, ambiguous: isAmbiguous }) => {
+        if (active) {
+          setSuggestions(next);
+          setAmbiguous(isAmbiguous);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error(error);
+        if (active) {
+          setSuggestions([]);
+          setAmbiguous(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [query, selected]);
   const showNoMatch = allowCustom && query.trim().length > 0 && suggestions.length === 0;
   const showRequiredSuggestion =
     !allowCustom && query.trim().length > 0 && suggestions.length === 0;
@@ -77,8 +109,7 @@ export function IngredientSearch({
     } else if (e.key === "Enter") {
       e.preventDefault();
       const picked = items[highlight];
-      const ambiguousCanonicals = canonicalsByAlias.get(query.trim().toLowerCase());
-      if (allowCustom && ambiguousCanonicals && ambiguousCanonicals.length > 1) {
+      if (allowCustom && ambiguous) {
         addCanonical(query.trim());
       } else if (picked) {
         addCanonical(picked.name);

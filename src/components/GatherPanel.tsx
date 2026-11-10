@@ -1,4 +1,4 @@
-import type { ShoppingItem } from "@/lib/engine";
+import type { ShoppingItem } from "@/lib/types";
 
 interface GatherPanelProps {
   items: ShoppingItem[];
@@ -28,7 +28,10 @@ export function GatherPanel({ items, total }: GatherPanelProps) {
           </li>
         ))}
       </ul>
-      <p className="mt-4 border-t pt-3 text-sm font-semibold" style={{ borderColor: "var(--parchment-dark)" }}>
+      <p
+        className="mt-4 border-t pt-3 text-sm font-semibold"
+        style={{ borderColor: "var(--parchment-dark)" }}
+      >
         Total est. ${total.toFixed(2)}
       </p>
     </section>
