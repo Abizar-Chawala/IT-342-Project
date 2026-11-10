@@ -2,7 +2,7 @@ import "./env.ts";
 import { createHash, randomBytes } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { and, eq, gt } from "drizzle-orm";
-import { db, sql } from "./db.ts";
+import { closeDb, getDb } from "./db.ts";
 import { profiles, sessions, users } from "../drizzle/schema.ts";
 import { canonicalsByAlias, recipesFor, type PantryProfile } from "./engine/index.ts";
 import { suggestIngredients } from "./suggest.ts";
@@ -48,7 +48,7 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
     return;
   }
 
-  const [session] = await db
+  const [session] = await getDb()
     .select({ userId: sessions.userId })
     .from(sessions)
     .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
@@ -79,7 +79,7 @@ app.get("/api/auth/session", async (req, res) => {
     res.json({ user: null });
     return;
   }
-  const [session] = await db
+  const [session] = await getDb()
     .select({ userId: sessions.userId })
     .from(sessions)
     .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
@@ -88,7 +88,7 @@ app.get("/api/auth/session", async (req, res) => {
     res.json({ user: null });
     return;
   }
-  const [user] = await db
+  const [user] = await getDb()
     .select({ id: users.id, email: users.email })
     .from(users)
     .where(eq(users.id, session.userId))
@@ -105,7 +105,7 @@ app.post("/api/auth/register", async (req, res): Promise<void> => {
   }
 
   const passwordHash = await hashPassword(password);
-  const [user] = await db
+  const [user] = await getDb()
     .insert(users)
     .values({ email, passwordHash })
     .onConflictDoNothing()
@@ -115,13 +115,15 @@ app.post("/api/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.insert(profiles).values({ userId: user.id });
+  await getDb().insert(profiles).values({ userId: user.id });
   const token = randomBytes(32).toString("base64url");
-  await db.insert(sessions).values({
-    tokenHash: hashToken(token),
-    userId: user.id,
-    expiresAt: new Date(Date.now() + sessionLifetimeMs),
-  });
+  await getDb()
+    .insert(sessions)
+    .values({
+      tokenHash: hashToken(token),
+      userId: user.id,
+      expiresAt: new Date(Date.now() + sessionLifetimeMs),
+    });
   setSessionCookie(res, token);
   res.status(201).json({ user });
 });
@@ -129,25 +131,30 @@ app.post("/api/auth/register", async (req, res): Promise<void> => {
 app.post("/api/auth/login", async (req, res): Promise<void> => {
   const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
   const password = typeof req.body.password === "string" ? req.body.password : "";
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const [user] = await getDb().select().from(users).where(eq(users.email, email)).limit(1);
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     res.status(401).json({ error: "Wrong email or password." });
     return;
   }
 
   const token = randomBytes(32).toString("base64url");
-  await db.insert(sessions).values({
-    tokenHash: hashToken(token),
-    userId: user.id,
-    expiresAt: new Date(Date.now() + sessionLifetimeMs),
-  });
+  await getDb()
+    .insert(sessions)
+    .values({
+      tokenHash: hashToken(token),
+      userId: user.id,
+      expiresAt: new Date(Date.now() + sessionLifetimeMs),
+    });
   setSessionCookie(res, token);
   res.json({ user: { id: user.id, email: user.email } });
 });
 
 app.post("/api/auth/logout", async (req, res) => {
   const token = readCookie(req, sessionCookie);
-  if (token) await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
+  if (token)
+    await getDb()
+      .delete(sessions)
+      .where(eq(sessions.tokenHash, hashToken(token)));
   res.clearCookie(sessionCookie, {
     httpOnly: true,
     secure: process.env["NODE_ENV"] === "production",
@@ -166,7 +173,11 @@ app.get("/api/pantry", (req, res) => {
 
 app.get("/api/profile", requireAuth, async (req, res) => {
   const userId = (req as AuthenticatedRequest).userId!;
-  const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  const [profile] = await getDb()
+    .select()
+    .from(profiles)
+    .where(eq(profiles.userId, userId))
+    .limit(1);
   res.json({ profile: profile ?? null });
 });
 
@@ -185,7 +196,7 @@ app.put("/api/profile", requireAuth, async (req, res): Promise<void> => {
   }
 
   const userId = (req as AuthenticatedRequest).userId!;
-  const [profile] = await db
+  const [profile] = await getDb()
     .insert(profiles)
     .values({
       userId,
@@ -228,20 +239,21 @@ app.post("/api/recipes", async (req, res): Promise<void> => {
   }
 
   const token = readCookie(req, sessionCookie);
-  const [session] = token
-    ? await db
-        .select({ userId: sessions.userId })
-        .from(sessions)
-        .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
-        .limit(1)
-    : [];
   const demo = process.env["NODE_ENV"] !== "production" && req.get("x-thyme-demo") === "true";
+  const [session] =
+    token && !demo
+      ? await getDb()
+          .select({ userId: sessions.userId })
+          .from(sessions)
+          .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
+          .limit(1)
+      : [];
   if (!session && !demo) {
     res.status(401).json({ error: "Please sign in." });
     return;
   }
   const [profile] = session
-    ? await db.select().from(profiles).where(eq(profiles.userId, session.userId)).limit(1)
+    ? await getDb().select().from(profiles).where(eq(profiles.userId, session.userId)).limit(1)
     : [];
   const preferences: PantryProfile = {
     restrictions: profile?.restrictions ?? [],
@@ -260,12 +272,18 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction): voi
     res.status(409).json({ error: "An account with that email already exists." });
     return;
   }
-  res.status(500).json({ error: "The server couldn't complete your request." });
+  const message =
+    process.env["NODE_ENV"] !== "production" && error instanceof Error
+      ? error.message
+      : "The server couldn't complete your request.";
+  res.status(500).json({ error: message });
 });
 
 app.listen(port, () => console.log(`Thyme API listening on port ${port}`));
 
-process.on("SIGTERM", async () => {
-  await sql.end();
-  process.exit(0);
-});
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, async () => {
+    await closeDb();
+    process.exit(0);
+  });
+}

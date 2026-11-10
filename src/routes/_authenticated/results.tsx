@@ -71,7 +71,11 @@ function ResultsPage() {
       } catch (e) {
         console.error(e);
         if (!cancelled) {
-          setError("The grove couldn't reach your recipes. Check your connection and try again.");
+          setError(
+            e instanceof Error
+              ? e.message
+              : "The grove couldn't reach your recipes. Check your connection and try again.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
