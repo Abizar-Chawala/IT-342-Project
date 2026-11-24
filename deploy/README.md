@@ -22,8 +22,10 @@ The app server only needs the `backend/` folder: `cd /opt/thyme/backend && npm c
 
 | File | Goes to |
 | --- | --- |
+| `thyme-web.service` | `/etc/systemd/system/thyme-web.service` (runs `frontend/.output/server/index.mjs` on 127.0.0.1:3000) |
+| `thyme.conf` | `/etc/nginx/conf.d/thyme.conf` (full server block: `/` to the Node frontend, `/api/` to the app server; edit `APP_PRIVATE_IP`) |
 | `cloudwatch-agent-web.json` | `/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json` |
-| `nginx-api-proxy.conf` | inside the nginx `server { }` block |
+| `nginx-api-proxy.conf` | older snippet for a setup with an internal ALB in front of the app tier; not used while there is no ALB |
 
 The web server only needs the `frontend/` folder: build it with `npm ci && npm run build` in
 `frontend/` and serve the result (see the repo README).

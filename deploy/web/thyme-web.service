@@ -1,0 +1,23 @@
+# /etc/systemd/system/thyme-web.service  (WEB tier: runs the built frontend, behind nginx)
+[Unit]
+Description=Thyme web (TanStack Start / Node)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=thyme-web
+Group=thyme-web
+WorkingDirectory=/opt/thyme/frontend
+Environment=NODE_ENV=production
+# Bind to localhost only: nginx is the public entry point and proxies / to this port.
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+ExecStart=/usr/local/bin/node .output/server/index.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
