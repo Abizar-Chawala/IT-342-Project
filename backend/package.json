@@ -1,0 +1,41 @@
+{
+  "name": "thyme-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "start": "tsx server/index.ts",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:start": "docker compose -f ../docker-compose.yml up -d postgres",
+    "db:stop": "docker compose -f ../docker-compose.yml stop postgres",
+    "db:setup": "npm run db:start && npm run db:push && npm run db:seed",
+    "db:seed": "tsx server/seed.ts",
+    "demo:security": "node scripts/security-demo.mjs"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "express": "^5.3.0",
+    "postgres": "^4.1.0",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.16.5",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.6",
+    "globals": "^15.15.0",
+    "prettier": "^3.7.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^4.1.10"
+  }
+}
