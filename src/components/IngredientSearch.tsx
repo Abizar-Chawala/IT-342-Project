@@ -34,39 +34,49 @@ export function IngredientSearch({
   const [highlight, setHighlight] = useState(0);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [ambiguous, setAmbiguous] = useState(false);
+  // The query the current `suggestions` answer; lets Enter ignore stale results while typing.
+  const [answeredQuery, setAnsweredQuery] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
+  const excludeKey = selected.join(",");
+  const trimmedQuery = query.trim();
+  const fresh = answeredQuery === trimmedQuery;
 
   useEffect(() => {
-    const trimmed = query.trim();
-    if (!trimmed) {
+    if (!trimmedQuery) {
       setSuggestions([]);
       setAmbiguous(false);
+      setAnsweredQuery("");
       return;
     }
 
-    let active = true;
-    const params = new URLSearchParams({ q: trimmed, exclude: selected.join(",") });
-    void api<{ suggestions: Suggestion[]; ambiguous: boolean }>(`/api/pantry?${params}`)
-      .then(({ suggestions: next, ambiguous: isAmbiguous }) => {
-        if (active) {
+    const controller = new AbortController();
+    // Debounce: wait for a short pause in typing, and cancel the request if the query changes.
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ q: trimmedQuery, exclude: excludeKey });
+      void api<{ suggestions: Suggestion[]; ambiguous: boolean }>(`/api/pantry?${params}`, {
+        signal: controller.signal,
+      })
+        .then(({ suggestions: next, ambiguous: isAmbiguous }) => {
           setSuggestions(next);
           setAmbiguous(isAmbiguous);
-        }
-      })
-      .catch((error: unknown) => {
-        console.error(error);
-        if (active) {
+          setAnsweredQuery(trimmedQuery);
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          console.error(error);
           setSuggestions([]);
           setAmbiguous(false);
-        }
-      });
+          setAnsweredQuery(trimmedQuery);
+        });
+    }, 150);
     return () => {
-      active = false;
+      clearTimeout(timer);
+      controller.abort();
     };
-  }, [query, selected]);
-  const showNoMatch = allowCustom && query.trim().length > 0 && suggestions.length === 0;
+  }, [trimmedQuery, excludeKey]);
+  const showNoMatch = allowCustom && fresh && trimmedQuery.length > 0 && suggestions.length === 0;
   const showRequiredSuggestion =
-    !allowCustom && query.trim().length > 0 && suggestions.length === 0;
+    !allowCustom && fresh && trimmedQuery.length > 0 && suggestions.length === 0;
   const items: Suggestion[] = suggestions;
 
   useEffect(() => {
@@ -108,9 +118,11 @@ export function IngredientSearch({
       setHighlight((h) => Math.max(h - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const picked = items[highlight];
-      if (allowCustom && ambiguous) {
-        addCanonical(query.trim());
+      if (!trimmedQuery) return;
+      // Results for an older query (the user is still typing) must not decide what Enter adds.
+      const picked = fresh ? items[highlight] : undefined;
+      if (allowCustom && fresh && ambiguous) {
+        addCanonical(trimmedQuery);
       } else if (picked) {
         addCanonical(picked.name);
       } else if (allowCustom) {

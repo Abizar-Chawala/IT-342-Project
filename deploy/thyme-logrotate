@@ -1,0 +1,9 @@
+# /etc/logrotate.d/thyme
+/var/log/thyme/*.log {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    copytruncate
+}

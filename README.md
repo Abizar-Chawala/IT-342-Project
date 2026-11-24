@@ -8,8 +8,19 @@ Thyme is a pantry-to-recipe app organized as an AWS three-tier application:
 
 ## Run locally
 
-Requires Node.js and npm. For a local recipe demo, no database setup is needed.
-Start the API and web app in separate terminals:
+Requires Node.js, npm, and Docker Desktop.
+
+Start the local PostgreSQL database, apply the schema, load the ingredient and recipe catalog, and run the API and web app:
+
+```sh
+npm run db:setup
+npm run dev:api
+npm run dev
+```
+
+Before the first database-backed run, copy `.env.example` to `.env` (it sets `NODE_ENV=development`, which the local demo mode needs).
+
+For a no-database recipe demo, start the API and web app in separate terminals:
 
 ```sh
 npm run dev:api
@@ -35,3 +46,12 @@ Run `npm test`, `npm run lint`, and `npm run build` for checks.
 - `server/` — Express endpoints, PBKDF2 password auth, and recipe logic.
 - `drizzle/` — RDS schema and SQL migration.
 - `src/routeTree.gen.ts` — generated TanStack Router file; do not edit.
+
+## Milestone 2: authentication, API and security
+
+- **Accounts:** `POST /api/auth/register`, `/login`, `/logout`, `GET /api/auth/session`. Passwords are salted PBKDF2-SHA256 (310,000 iterations); sessions are random tokens stored hashed, in `HttpOnly`, `SameSite=Strict` cookies.
+- **Search (PostgreSQL):** `GET /api/pantry?q=` (ingredient autocomplete), `GET /api/recipes/search?q=&category=&cuisine=&tag=&limit=&offset=`, `GET /api/recipes/:id`. The catalog lives in the `ingredients` and `recipes` tables; load it with `npm run db:seed`.
+- **Validation:** every request is parsed in `server/validate.ts` before use; SQL goes through parameterized Drizzle queries. Evidence: `npm test` and `npm run demo:security` (against any running API, e.g. `node scripts/security-demo.mjs https://your-site`).
+- **Logging:** one JSON line per event (`server/logger.ts`); on AWS the CloudWatch agent ships `/var/log/thyme/api.log` to the `/thyme/api` log group. Passwords, tokens and full emails are never logged.
+- **Secrets:** nothing secret is in the repo. On AWS the database credentials come from Secrets Manager through the EC2 instance role (`deploy/`).
+- **Health check:** `GET /api/health` (add `?deep=1` to include a database check).

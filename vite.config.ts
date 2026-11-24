@@ -11,13 +11,9 @@ export default defineConfig({
   vite: {
     server: {
       proxy: {
-        "/api": "http://localhost:3001",
+        // changeOrigin:false keeps Host=localhost:8080 so it matches the browser Origin (CSRF check in server/app.ts)
+        "/api": { target: "http://localhost:3001", changeOrigin: false, xfwd: true },
       },
     },
-  },
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
   },
 });

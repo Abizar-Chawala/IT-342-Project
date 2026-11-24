@@ -23,7 +23,7 @@ const connection = new URL(
     process.env.RDS_DB_NAME!,
   )}`,
 );
-connection.searchParams.set("sslmode", "require");
+connection.searchParams.set("sslmode", process.env.RDS_SSL === "false" ? "disable" : "require");
 
 export default defineConfig({
   dialect: "postgresql",

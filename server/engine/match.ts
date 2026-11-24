@@ -7,6 +7,7 @@ import {
 } from "./data.ts";
 import { normalize, parseIngredient, parseIngredientLine } from "./parse.ts";
 import { inferRestrictions } from "./restrictions.ts";
+import { logger } from "../logger.ts";
 import type {
   ClosestMatch,
   EmptyReason,
@@ -39,6 +40,7 @@ const RESTRICTION_FLAG: Record<string, string> = {
  */
 const GENERIC_COVERS: Record<string, (canonical: string) => boolean> = {
   cheese: (c) =>
+    !/cream cheese|cottage cheese/.test(c) &&
     /cheese|mozzarella|cheddar|parmesan|pecorino|gruyere|feta|cotija|ricotta|pepper jack|gouda|brie|halloumi|paneer/.test(
       c,
     ),
@@ -119,8 +121,7 @@ export function recipesFor(
     })
     .filter(Boolean);
   const pantrySet = new Set(normalizedPantry);
-  const generics = normalizedPantry.filter((p) => p in GENERIC_COVERS);
-  console.log("[thyme] normalized pantry:", normalizedPantry, "| servings:", servings);
+  const generics = normalizedPantry.filter((p) => Object.hasOwn(GENERIC_COVERS, p));
 
   const isOwned = (c: string): boolean =>
     STAPLES.has(c) || pantrySet.has(c) || generics.some((g) => GENERIC_COVERS[g]?.(c) ?? false);
@@ -145,9 +146,12 @@ export function recipesFor(
     return !hitsAvoid;
   });
   const totalAfterFilter = passing.length;
-  console.log(
-    `[thyme] recipes before filter: ${totalBeforeFilter}, after filter: ${totalAfterFilter}`,
-  );
+  logger.debug("recipe_filter", {
+    pantrySize: normalizedPantry.length,
+    servings,
+    totalBeforeFilter,
+    totalAfterFilter,
+  });
 
   const scored: TierResult[] = passing.map((r) => {
     const p = parseRecipe(r);
@@ -217,9 +221,10 @@ export function recipesFor(
     .filter((s) => s.estimated_cost <= budget)
     .sort(byCost)
     .slice(0, 5);
-  console.log(
-    `[thyme] tier counts — nothingToBuy: ${nothingToBuy.length}, justAFewThings: ${justAFewThings.length}`,
-  );
+  logger.debug("recipe_tiers", {
+    nothingToBuy: nothingToBuy.length,
+    justAFewThings: justAFewThings.length,
+  });
 
   let fewEmptyReason: EmptyReason = "none";
   if (justAFewThings.length === 0) {

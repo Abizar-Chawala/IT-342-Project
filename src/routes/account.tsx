@@ -248,6 +248,7 @@ function AuthPanel({ onContinueInDemo }: { onContinueInDemo: () => void }) {
               id="email"
               type="email"
               required
+              maxLength={320}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-lg border px-3 py-2 text-base text-ink outline-none focus:ring-2"
@@ -262,7 +263,18 @@ function AuthPanel({ onContinueInDemo }: { onContinueInDemo: () => void }) {
               id="password"
               type="password"
               required
-              minLength={6}
+              minLength={mode === "signup" ? 8 : 1}
+              maxLength={256}
+              pattern={
+                mode === "signup"
+                  ? "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9\\s]).{8,256}"
+                  : undefined
+              }
+              title={
+                mode === "signup"
+                  ? "Use 8–256 characters with uppercase, lowercase, a number, and a symbol."
+                  : undefined
+              }
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-lg border px-3 py-2 text-base text-ink outline-none focus:ring-2"
@@ -547,6 +559,7 @@ function ProfilePanel({ user, onSignedOut }: { user: AccountUser; onSignedOut: (
             id="budget"
             type="number"
             min={0}
+            max={99999999.99}
             step="0.25"
             value={form.budget}
             onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
@@ -602,6 +615,7 @@ function TextField({
       <input
         id={id}
         type="text"
+        maxLength={500}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-lg border px-3 py-2 text-base text-ink outline-none focus:ring-2"

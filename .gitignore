@@ -31,3 +31,6 @@ dist-ssr
 *.sw?
 
 .env
+
+code_dump.txt
+M2-CHANGES.md
